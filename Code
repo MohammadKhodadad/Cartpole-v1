@@ -1,0 +1,118 @@
+import numpy as np
+import keras
+from keras import optimizers,Sequential,layers
+import gym
+import collections
+from keras.layers import Dense
+import random
+from keras.optimizers import Adam
+
+import keras.backend as K
+def policy_loss(y_true, y_pred):
+    return K.mean(-1*K.log(y_pred)*y_true)
+    
+    class DQN:
+  def __init__(self):
+    self.episodes=2000
+    self.state_size = 4
+    self.action_size = 2
+    self.env = gym.make('CartPole-v1')
+    self.memory = collections.deque(maxlen=2000)
+    self.gamma = 0.95    # discount rate
+    self.epsilon = 1.0  # exploration rate
+    self.epsilon_min = 0.01
+    self.epsilon_decay = 0.995
+    self.learning_rate = 0.001
+    self.model = self.c_m()
+    self.pmodel= self.p_c_m()
+    self.vmodel= self.v_c_m()
+  #defining model
+  def c_m(self):
+    model = Sequential()
+    model.add(Dense(24, input_dim=self.state_size, activation='relu'))
+    model.add(Dense(12, activation='relu'))
+    model.add(Dense(self.action_size, activation='linear'))
+    model.compile(loss='mse',optimizer=Adam(lr=self.learning_rate),metrics=['mse'])
+    return model
+  def p_c_m(self):
+    pmodel = Sequential()
+    pmodel.add(Dense(24, input_dim=self.state_size, activation='relu'))
+    pmodel.add(Dense(12, activation='relu'))
+    pmodel.add(Dense(self.action_size, activation='softmax'))
+    pmodel.compile(loss=policy_loss,optimizer=Adam(lr=0.0005),metrics=['mse'])
+    return pmodel
+  def v_c_m(self):
+    vmodel = Sequential()
+    vmodel.add(Dense(24, input_dim=self.state_size, activation='relu'))
+    vmodel.add(Dense(12, activation='relu'))
+    vmodel.add(Dense(1, activation='linear'))
+    vmodel.compile(loss='mse',optimizer=Adam(lr=self.learning_rate),metrics=['mse'])
+    return vmodel
+  def remember(self, state, action, reward, next_state, done):
+      self.memory.append((state, action, reward, next_state, done))
+      
+      
+  def act(self, state):
+      ###if np.random.rand() <= self.epsilon:
+       ###  return random.randrange(self.action_size)
+    act_values = self.pmodel.predict(state)
+    ###  return np.argmax(act_values[0])  
+    if np.random.rand()<=act_values[0][0]:
+      
+      return 0
+    ##print(act_values[0][0])
+    return 1
+  
+    
+  def replay(self, batch_size):
+    
+      minibatch = random.sample(self.memory, batch_size)
+      #mim=np.random.rand(batch_size)*(len(self.memory)-1)
+      for state, action, reward, next_state, done in minibatch:
+      #for i in mim:
+          #state, action, reward, next_state, done=self.memory[int(i)]
+          #state2, action2, reward2, next_state2, done2=self.memory[int(i)+1]
+          target = reward
+          target_3f=np.zeros((1,))
+          target_f = self.vmodel.predict(state)
+          if not done:
+            ##target_ff=self.model.predict(next_state)
+            target_3f=self.vmodel.predict(next_state)
+            #temp=self.pmodel.predict(next_state)[0]
+            #if np.random.rand()<=temp[0]:
+              #target = reward + self.gamma * target_ff[0][0]
+            #else:
+              #target = reward + self.gamma * target_ff[0][1]
+          t=np.zeros((1,2))
+          t[0][action]=reward+target_3f*self.gamma-target_f
+          self.vmodel.fit(state, reward+self.gamma*target_3f, epochs=1, verbose=0)
+          self.pmodel.fit(state, t, epochs=1, verbose=0)
+          ##target_f[0][action] = target
+          ##self.model.fit(state, target_f, epochs=1, verbose=0)
+      if self.epsilon > self.epsilon_min:
+         self.epsilon *= self.epsilon_decay
+          
+  def m_r(self):
+    for e in range(self.episodes):
+      l=0
+      state =self.env.reset()
+      for time_t in range(500):
+        state = np.reshape(state, [1, 4])
+        action = self.act(state)
+        next_state, reward, done,nothing  = self.env.step(action)
+        next_state = np.reshape(next_state, [1, 4])
+        
+        self.remember(state, action, reward, next_state, done)
+        state = next_state
+        l=l+1
+        if done:
+          
+          print("episode: {}/{}, score: {}"
+                      .format(e,self.episodes, time_t))
+          break
+      print(l)
+      self.replay(min(32,l))
+      
+      
+x=DQN()
+x.m_r()
